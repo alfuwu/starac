@@ -23,7 +23,20 @@
     "lwjgl3.MinecraftAccessor",
     "lwjgl3.MixinMinecraftDrawVirtualCursor",
     "lwjgl3.MixinResourceDownloadThread",
-    "lwjgl3.MixinScreenFixClipboard"
+    "lwjgl3.MixinScreenFixClipboard",
+    "omni.TesselatorMixin",
+    "omni.GameRendererMixin",
+    "omni.WorldRendererMixin",
+    "omni.BlockRendererMixin",
+    "omni.TextRendererMixin",
+    "omni.TextureManagerMixin",
+    "omni.LightingMixin",
+    "omni.GuiElementMixin",
+    "omni.EntityRendererMixin",
+    "omni.ItemInHandRendererMixin",
+    "omni.ScreenMixin",
+    "omni.ParticleManagerMixin",
+    "omni.WindowMixin"
   ],
   "injectors": {
     "defaultRequire": 1
