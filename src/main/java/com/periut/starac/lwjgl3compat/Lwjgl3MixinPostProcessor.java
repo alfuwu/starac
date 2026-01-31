@@ -87,6 +87,12 @@ public class Lwjgl3MixinPostProcessor implements IMixinConfigPlugin {
         }
 
         final var stub = CodeGen.createDelegatingMethod(target, method, Annotations.getValue(node));
+        // Check if the stub method already exists to avoid duplicates when multiple mixins target the same class
+        boolean exists = target.methods.stream().anyMatch(m -> m.name.equals(stub.name) && m.desc.equals(stub.desc));
+        if (exists) {
+            LOGGER.debug("[L3MPP] Stub already exists {}::{}{}; skipping", target.name, stub.name, stub.desc);
+            return;
+        }
         target.methods.add(stub);
         LOGGER.debug("[L3MPP] Created method {}::[{} -> {}]{}", target.name, stub.name, method.name, method.desc);
     }

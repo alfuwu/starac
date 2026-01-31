@@ -1,29 +1,32 @@
-#version 450 core
+#version 330 core
 
-layout(location = 0) in vec2 vTexCoord;
-layout(location = 1) in vec4 vColor;
+in vec2 vTexCoord;
+in vec4 vColor;
 
-layout(binding = 1) uniform sampler2D uTexture;
+uniform sampler2D uTexture;
+uniform int uUseTexture;
+uniform vec4 uColor;
+uniform int uUseVertexColor;
+uniform float uAlphaTest;
 
-layout(binding = 2) uniform FragUniforms {
-    int uUseTexture;
-    vec4 uColor;
-    int uUseUniformColor;
-    float uAlphaTest;
-};
-
-layout(location = 0) out vec4 fragColor;
+out vec4 fragColor;
 
 void main() {
-    vec4 baseColor = (uUseUniformColor != 0) ? uColor : vColor;
+    vec4 color;
 
-    if (uUseTexture != 0) {
-        vec4 texColor = texture(uTexture, vTexCoord);
-        fragColor = texColor * baseColor;
+    if (uUseVertexColor != 0) {
+        color = vColor;
     } else {
-        fragColor = baseColor;
+        color = uColor;
     }
 
-    // Alpha test - discard nearly transparent pixels
-    if (fragColor.a < uAlphaTest) discard;
+    if (uUseTexture != 0) {
+        color *= texture(uTexture, vTexCoord);
+    }
+
+    if (color.a < uAlphaTest) {
+        discard;
+    }
+
+    fragColor = color;
 }

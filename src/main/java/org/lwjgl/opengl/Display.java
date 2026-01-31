@@ -403,11 +403,10 @@ public final class Display {
 
 		GLFW.glfwWindowHint(GLFW.GLFW_CLIENT_API, GLFW.GLFW_OPENGL_API);
 		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_CREATION_API, GLFW.GLFW_NATIVE_CONTEXT_API);
-		if (GLFW.glfwGetPlatform() != GLFW.GLFW_PLATFORM_COCOA) { // macOS does not support the compat profile
-			GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 3);
-			GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 2);
-			GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE, GLFW.GLFW_OPENGL_COMPAT_PROFILE);
-		}
+		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 3);
+		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 3);
+		GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE, GLFW.GLFW_OPENGL_CORE_PROFILE);
+		GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_FORWARD_COMPAT, GLFW.GLFW_TRUE);
 		GLFW.glfwWindowHint(GLFW.GLFW_ALPHA_BITS, pixelFormat.getAlphaBits());
 		GLFW.glfwWindowHint(GLFW.GLFW_DEPTH_BITS, pixelFormat.getDepthBits());
 		GLFW.glfwWindowHint(GLFW.GLFW_STENCIL_BITS, pixelFormat.getStencilBits());
@@ -532,14 +531,19 @@ public final class Display {
 		}
 		WaylandCenterCursor.destroy();
 		// free callbacks
-		assert sizeCallback != null;
-		sizeCallback.free();
+		try {
+			if (sizeCallback != null) {
+				sizeCallback.free();
+			}
+		} catch (NullPointerException ignored) {}
 		Mouse.destroy();
 		Keyboard.destroy();
-		GLFWErrorCallback callback = GLFW.glfwSetErrorCallback(null);
-		if (callback != null) {
-			callback.free();
-		}
+		try {
+			GLFWErrorCallback callback = GLFW.glfwSetErrorCallback(null);
+			if (callback != null) {
+				callback.free();
+			}
+		} catch (NullPointerException ignored) {}
 		// Destroy the window
 		GLFW.glfwDestroyWindow(handle);
 		GLFW.glfwTerminate();

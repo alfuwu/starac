@@ -156,12 +156,11 @@ public class GLRenderDevice extends RenderDevice {
     public void setupVertexAttributes() {
         if (!vaoCreated) {
             cachedVAO = GL33.glGenVertexArrays();
-            GL33.glBindVertexArray(cachedVAO);
             vaoCreated = true;
-        } else {
-            GL33.glBindVertexArray(cachedVAO);
         }
+        GL33.glBindVertexArray(cachedVAO);
 
+        // Must always reconfigure pointers since they bind to the currently bound VBO
         // Position: 3 floats at offset 0
         GL33.glEnableVertexAttribArray(RenderTypes.ATTRIB_POSITION);
         GL33.glVertexAttribPointer(RenderTypes.ATTRIB_POSITION, 3, GL33.GL_FLOAT, false,

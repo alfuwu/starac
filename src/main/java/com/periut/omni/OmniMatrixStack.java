@@ -14,8 +14,18 @@ public class OmniMatrixStack {
         current = identity();
     }
 
+    // Global matrix mode tracking (GL_MODELVIEW=5888, GL_PROJECTION=5889)
+    private static int currentMatrixMode = 5888;
+
     public static OmniMatrixStack projection() { return PROJECTION; }
     public static OmniMatrixStack modelview() { return MODELVIEW; }
+
+    public static void setMatrixMode(int mode) { currentMatrixMode = mode; }
+    public static int getMatrixMode() { return currentMatrixMode; }
+
+    public static OmniMatrixStack current() {
+        return currentMatrixMode == 5889 ? PROJECTION : MODELVIEW;
+    }
 
     public void push() {
         stack.push(current.clone());

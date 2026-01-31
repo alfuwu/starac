@@ -1,5 +1,6 @@
 package com.periut.omni;
 
+import com.periut.omni.OmniShaderManager;
 import com.periut.omni.backend.IndexBuffer;
 import com.periut.omni.backend.RenderDevice;
 import com.periut.omni.backend.RenderTypes;
@@ -90,7 +91,20 @@ public class OmniTesselator {
         }
         tesselating = false;
         if (vertices > 0) {
-            draw();
+            if (OmniDisplayList.isRecording()) {
+                int drawModeInt = switch (mode) {
+                    case QUADS -> 7;
+                    case TRIANGLES -> 4;
+                    case TRIANGLE_FAN -> 6;
+                    case LINE_STRIP -> 3;
+                    case LINES -> 1;
+                    case POINTS -> 0;
+                    default -> 7;
+                };
+                OmniDisplayList.storeData(OmniDisplayList.getCurrentListId(), array, p, vertices, drawModeInt);
+            } else {
+                draw();
+            }
         }
         clear();
     }
@@ -201,6 +215,9 @@ public class OmniTesselator {
     private void draw() {
         if (vertices == 0) return;
         if (!vaoInitialized) init();
+
+        // Tell the shader whether to use per-vertex colors or the uniform color
+        OmniShaderManager.get().setUseVertexColor(hasColor);
 
         RenderDevice device = RenderDevice.get();
 

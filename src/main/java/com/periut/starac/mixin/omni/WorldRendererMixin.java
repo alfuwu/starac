@@ -58,15 +58,6 @@ public class WorldRendererMixin {
     }
 
     @Redirect(method = "renderSky", at = @At(value = "INVOKE",
-            target = "Lorg/lwjgl/opengl/GL11;glCallList(I)V"))
-    private void omni$skyCallList(int list) {
-        // Display lists contain pre-recorded Tesselator geometry.
-        // With OmniTesselator, the geometry was drawn during list creation.
-        // Call the display list to replay any captured GL commands.
-        org.lwjgl.opengl.GL11.glCallList(list);
-    }
-
-    @Redirect(method = "renderSky", at = @At(value = "INVOKE",
             target = "Lorg/lwjgl/opengl/GL11;glBlendFunc(II)V"))
     private void omni$skyBlendFunc(int src, int dst) {
         RenderDevice.get().setBlend(true, mapBlendFactor(src), mapBlendFactor(dst));
@@ -354,7 +345,7 @@ public class WorldRendererMixin {
             case 2884 -> RenderDevice.get().setCullFace(true, RenderTypes.CullMode.BACK);
             case 3553 -> OmniShaderManager.get().setUseTexture(true);
             case 3008 -> OmniShaderManager.get().setAlphaTest(0.1f);
-            case 2912 -> {} // GL_FOG
+            case 2912 -> OmniShaderManager.get().setFogEnabled(true); // GL_FOG
             case 2896, 16384, 16385, 2903 -> {} // Lighting
             case 32823 -> RenderDevice.get().setPolygonOffset(true, -3.0f, -3.0f); // GL_POLYGON_OFFSET_FILL
             default -> {}
@@ -369,7 +360,7 @@ public class WorldRendererMixin {
             case 2884 -> RenderDevice.get().setCullFace(false, RenderTypes.CullMode.NONE);
             case 3553 -> OmniShaderManager.get().setUseTexture(false);
             case 3008 -> OmniShaderManager.get().setAlphaTest(0.0f);
-            case 2912 -> {} // GL_FOG
+            case 2912 -> OmniShaderManager.get().setFogEnabled(false); // GL_FOG
             case 2896, 16384, 16385, 2903 -> {} // Lighting
             case 32823 -> RenderDevice.get().setPolygonOffset(false, 0, 0); // GL_POLYGON_OFFSET_FILL
             default -> {}

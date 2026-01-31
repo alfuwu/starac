@@ -1,6 +1,5 @@
 package com.periut.omni.backend.gl;
 
-import com.periut.omni.GLSLTranspiler;
 import com.periut.omni.backend.ShaderPipeline;
 import org.lwjgl.opengl.GL33;
 
@@ -13,17 +12,13 @@ public class GLShaderPipeline extends ShaderPipeline {
 
     @Override
     public boolean loadFromGLSL(String vertexSource, String fragmentSource) {
-        // Always transpile 450→330 since we target GL 3.3
-        String transpiledVertex = GLSLTranspiler.transpile450to330(vertexSource);
-        String transpiledFragment = GLSLTranspiler.transpile450to330(fragmentSource);
-
-        int vertexShader = compileShader(GL33.GL_VERTEX_SHADER, transpiledVertex);
+        int vertexShader = compileShader(GL33.GL_VERTEX_SHADER, vertexSource);
         if (vertexShader == 0) {
             System.err.println("Vertex shader compilation failed!");
             return false;
         }
 
-        int fragmentShader = compileShader(GL33.GL_FRAGMENT_SHADER, transpiledFragment);
+        int fragmentShader = compileShader(GL33.GL_FRAGMENT_SHADER, fragmentSource);
         if (fragmentShader == 0) {
             System.err.println("Fragment shader compilation failed!");
             GL33.glDeleteShader(vertexShader);

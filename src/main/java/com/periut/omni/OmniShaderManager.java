@@ -3,24 +3,31 @@ package com.periut.omni;
 import com.periut.omni.backend.RenderDevice;
 import com.periut.omni.backend.ShaderPipeline;
 
-import java.io.IOException;
+import java.io.BufferedReader;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
 
 public class OmniShaderManager {
     private static final OmniShaderManager INSTANCE = new OmniShaderManager();
 
-    private ShaderPipeline worldShader;
-    private ShaderPipeline skyShader;
-    private ShaderPipeline guiShader;
-    private ShaderPipeline lineShader;
-
-    private ShaderPipeline currentShader;
     private boolean initialized;
 
+    private ShaderPipeline guiShader;
+    private ShaderPipeline worldShader;
+    private ShaderPipeline activeShader;
+
+    // Shared uniform state
+    private boolean useTexture;
+    private boolean useVertexColor = true;
+    private float guiColorR = 1f, guiColorG = 1f, guiColorB = 1f, guiColorA = 1f;
+    private float alphaThreshold;
+
+    // Fog state
+    private boolean fogEnabled;
     private float fogStart, fogEnd;
     private float fogR, fogG, fogB;
-    private float alphaThreshold;
 
     private OmniShaderManager() {}
 
@@ -31,91 +38,113 @@ public class OmniShaderManager {
 
         RenderDevice device = RenderDevice.get();
 
-        worldShader = device.createShaderPipeline();
-        if (!worldShader.loadFromGLSL(loadResource("world.vert"), loadResource("world.frag"))) {
-            System.err.println("Failed to load world shader");
-        }
-
-        skyShader = device.createShaderPipeline();
-        if (!skyShader.loadFromGLSL(loadResource("sky.vert"), loadResource("sky.frag"))) {
-            System.err.println("Failed to load sky shader");
-        }
-
+        // Load GUI shader
         guiShader = device.createShaderPipeline();
-        if (!guiShader.loadFromGLSL(loadResource("gui.vert"), loadResource("gui.frag"))) {
-            System.err.println("Failed to load gui shader");
+        String guiVert = loadShaderSource("/assets/omni/shaders/gui.vert");
+        String guiFrag = loadShaderSource("/assets/omni/shaders/gui.frag");
+        if (guiVert == null || guiFrag == null) {
+            System.err.println("[Omni] Failed to load GUI shader sources!");
+            return;
+        }
+        if (!guiShader.loadFromGLSL(guiVert, guiFrag)) {
+            System.err.println("[Omni] Failed to compile GUI shader!");
+            return;
         }
 
-        lineShader = device.createShaderPipeline();
-        if (!lineShader.loadFromGLSL(loadResource("line.vert"), loadResource("line.frag"))) {
-            System.err.println("Failed to load line shader");
+        // Load world shader
+        worldShader = device.createShaderPipeline();
+        String worldVert = loadShaderSource("/assets/omni/shaders/world.vert");
+        String worldFrag = loadShaderSource("/assets/omni/shaders/world.frag");
+        if (worldVert == null || worldFrag == null) {
+            System.err.println("[Omni] Failed to load world shader sources!");
+            return;
+        }
+        if (!worldShader.loadFromGLSL(worldVert, worldFrag)) {
+            System.err.println("[Omni] Failed to compile world shader!");
+            return;
         }
 
         initialized = true;
+        System.out.println("[Omni] Shaders initialized successfully.");
     }
 
-    private String loadResource(String name) {
-        String path = "/assets/omni/shaders/" + name;
-        try (InputStream is = OmniShaderManager.class.getResourceAsStream(path)) {
+    private static String loadShaderSource(String resourcePath) {
+        try (InputStream is = OmniShaderManager.class.getResourceAsStream(resourcePath)) {
             if (is == null) {
-                System.err.println("Shader resource not found: " + path);
-                return "";
+                System.err.println("[Omni] Shader resource not found: " + resourcePath);
+                return null;
             }
-            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            System.err.println("Failed to read shader: " + path);
-            return "";
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                return reader.lines().collect(Collectors.joining("\n"));
+            }
+        } catch (Exception e) {
+            System.err.println("[Omni] Error loading shader: " + resourcePath);
+            e.printStackTrace();
+            return null;
         }
     }
 
-    public ShaderPipeline getWorldShader() { return worldShader; }
-    public ShaderPipeline getSkyShader() { return skyShader; }
-    public ShaderPipeline getGuiShader() { return guiShader; }
-    public ShaderPipeline getLineShader() { return lineShader; }
-    public ShaderPipeline getCurrentShader() { return currentShader; }
+    // ========== Shader switching ==========
+
+    public void useGuiShader() {
+        if (!initialized || guiShader == null) return;
+        guiShader.bind();
+        activeShader = guiShader;
+        uploadGuiUniforms();
+    }
 
     public void useWorldShader() {
+        if (!initialized || worldShader == null) return;
         worldShader.bind();
-        currentShader = worldShader;
-        updateMatrices();
-        worldShader.setInt("uTexture", 0);
-        worldShader.setInt("uUseTexture", 1);
-        worldShader.setFloat("uFogStart", fogStart);
-        worldShader.setFloat("uFogEnd", fogEnd);
-        worldShader.setVec3("uFogColor", fogR, fogG, fogB);
-        worldShader.setFloat("uAlphaTest", alphaThreshold);
-        worldShader.setFloat("uBrightness", 1.0f);
-        worldShader.setFloat("uSkyBrightness", 1.0f);
-        worldShader.setInt("uEnableLighting", 0);
+        activeShader = worldShader;
+        uploadWorldUniforms();
     }
 
     public void useSkyShader() {
-        skyShader.bind();
-        currentShader = skyShader;
-        updateMatrices();
-        skyShader.setInt("uTexture", 0);
-    }
-
-    public void useGuiShader() {
-        guiShader.bind();
-        currentShader = guiShader;
-        updateMatrices();
-        guiShader.setInt("uTexture", 0);
-        guiShader.setFloat("uAlphaTest", 0.01f);
+        // Sky uses world shader (same fog/MVP support)
+        useWorldShader();
     }
 
     public void useLineShader() {
-        lineShader.bind();
-        currentShader = lineShader;
-        updateMatrices();
+        useWorldShader();
     }
 
+    // ========== Uniform upload ==========
+
+    private void uploadGuiUniforms() {
+        if (activeShader != guiShader) return;
+        guiShader.setMat4("uMVP", OmniMatrixStack.getMVP());
+        guiShader.setInt("uTexture", 0);
+        guiShader.setInt("uUseTexture", useTexture ? 1 : 0);
+        guiShader.setInt("uUseVertexColor", useVertexColor ? 1 : 0);
+        guiShader.setVec4("uColor", guiColorR, guiColorG, guiColorB, guiColorA);
+        guiShader.setFloat("uAlphaTest", alphaThreshold);
+    }
+
+    private void uploadWorldUniforms() {
+        if (activeShader != worldShader) return;
+        worldShader.setMat4("uMVP", OmniMatrixStack.getMVP());
+        worldShader.setInt("uTexture", 0);
+        worldShader.setInt("uUseTexture", useTexture ? 1 : 0);
+        worldShader.setInt("uUseVertexColor", useVertexColor ? 1 : 0);
+        worldShader.setVec4("uColor", guiColorR, guiColorG, guiColorB, guiColorA);
+        worldShader.setFloat("uAlphaTest", alphaThreshold);
+        // Fog
+        worldShader.setInt("uUseFog", fogEnabled ? 1 : 0);
+        worldShader.setFloat("uFogStart", fogStart);
+        worldShader.setFloat("uFogEnd", fogEnd);
+        worldShader.setVec3("uFogColor", fogR, fogG, fogB);
+    }
+
+    // ========== Uniform setters ==========
+
     public void updateMatrices() {
-        if (currentShader == null) return;
-        float[] mvp = OmniMatrixStack.getMVP();
-        float[] mv = OmniMatrixStack.modelview().get();
-        currentShader.setMat4("uMVP", mvp);
-        currentShader.setMat4("uModelView", mv);
+        if (!initialized || activeShader == null) return;
+        activeShader.setMat4("uMVP", OmniMatrixStack.getMVP());
+    }
+
+    public void updateNormalMatrix() {
+        // Reserved for future lighting
     }
 
     public void updateFog(float start, float end, float r, float g, float b) {
@@ -124,90 +153,65 @@ public class OmniShaderManager {
         fogR = r;
         fogG = g;
         fogB = b;
-        if (currentShader == worldShader) {
-            worldShader.setFloat("uFogStart", fogStart);
-            worldShader.setFloat("uFogEnd", fogEnd);
-            worldShader.setVec3("uFogColor", fogR, fogG, fogB);
+        if (initialized && activeShader == worldShader) {
+            worldShader.setFloat("uFogStart", start);
+            worldShader.setFloat("uFogEnd", end);
+            worldShader.setVec3("uFogColor", r, g, b);
+        }
+    }
+
+    public void setFogEnabled(boolean enabled) {
+        fogEnabled = enabled;
+        if (initialized && activeShader == worldShader) {
+            worldShader.setInt("uUseFog", enabled ? 1 : 0);
         }
     }
 
     public void setAlphaTest(float threshold) {
         alphaThreshold = threshold;
-        if (currentShader == worldShader) {
-            worldShader.setFloat("uAlphaTest", threshold);
-        } else if (currentShader == guiShader) {
-            guiShader.setFloat("uAlphaTest", threshold);
+        if (initialized && activeShader != null) {
+            activeShader.setFloat("uAlphaTest", threshold);
         }
     }
 
     public void setUseTexture(boolean use) {
-        if (currentShader != null) {
-            currentShader.setInt("uUseTexture", use ? 1 : 0);
-            if (use && (currentShader == skyShader || currentShader == guiShader)) {
-                currentShader.setInt("uUseUniformColor", 0);
-            }
-        }
-    }
-
-    public void setSkyColor(float r, float g, float b, float a) {
-        if (currentShader == skyShader) {
-            skyShader.setVec4("uColor", r, g, b, a);
-            skyShader.setInt("uUseUniformColor", 1);
+        useTexture = use;
+        if (initialized && activeShader != null) {
+            activeShader.setInt("uUseTexture", use ? 1 : 0);
         }
     }
 
     public void setGuiColor(float r, float g, float b, float a) {
-        if (currentShader == guiShader) {
-            guiShader.setVec4("uColor", r, g, b, a);
-            guiShader.setInt("uUseUniformColor", 1);
+        guiColorR = r;
+        guiColorG = g;
+        guiColorB = b;
+        guiColorA = a;
+        if (initialized && activeShader != null) {
+            activeShader.setVec4("uColor", r, g, b, a);
         }
     }
 
     public void setUseVertexColor(boolean use) {
-        if (currentShader != null) {
-            currentShader.setInt("uUseUniformColor", use ? 0 : 1);
+        useVertexColor = use;
+        if (initialized && activeShader != null) {
+            activeShader.setInt("uUseVertexColor", use ? 1 : 0);
         }
     }
 
-    public void enableLighting(boolean enable) {
-        if (currentShader == worldShader) {
-            worldShader.setInt("uEnableLighting", enable ? 1 : 0);
-        }
+    public void setSkyColor(float r, float g, float b, float a) {
+        setGuiColor(r, g, b, a);
+        setUseVertexColor(false);
     }
 
+    // Lighting stubs
+    public void enableLighting(boolean enable) {}
     public void setLightDirections(float dir0x, float dir0y, float dir0z,
-                                   float dir1x, float dir1y, float dir1z) {
-        if (currentShader == worldShader) {
-            worldShader.setVec3("uLightDir0", dir0x, dir0y, dir0z);
-            worldShader.setVec3("uLightDir1", dir1x, dir1y, dir1z);
-        }
-    }
+                                   float dir1x, float dir1y, float dir1z) {}
+    public void setLightParams(float ambient, float diffuse) {}
+    public void setBrightness(float brightness) {}
+    public void setSkyBrightness(float skyBrightness) {}
 
-    public void setLightParams(float ambient, float diffuse) {
-        if (currentShader == worldShader) {
-            worldShader.setFloat("uAmbient", ambient);
-            worldShader.setFloat("uDiffuse", diffuse);
-        }
-    }
-
-    public void setBrightness(float brightness) {
-        if (currentShader == worldShader) {
-            worldShader.setFloat("uBrightness", brightness);
-        }
-    }
-
-    public void setSkyBrightness(float skyBrightness) {
-        if (currentShader == worldShader) {
-            worldShader.setFloat("uSkyBrightness", skyBrightness);
-        }
-    }
-
-    public void updateNormalMatrix() {
-        if (currentShader == null) return;
-        float[] nm = OmniMatrixStack.getNormalMatrix3x3();
-        currentShader.setMat3("uNormalMatrix", nm);
-    }
-
+    // Fog getters
     public float getFogStart() { return fogStart; }
     public float getFogEnd() { return fogEnd; }
     public float getFogR() { return fogR; }

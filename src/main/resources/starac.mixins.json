@@ -36,7 +36,13 @@
     "omni.ItemInHandRendererMixin",
     "omni.ScreenMixin",
     "omni.ParticleManagerMixin",
-    "omni.WindowMixin"
+    "omni.WindowMixin",
+    "omni.MemoryTrackerMixin",
+    "omni.LoadingScreenMixin",
+    "omni.TitleScreenMixin",
+    "omni.ButtonWidgetMixin",
+    "omni.OmniGL11Mixin",
+    "omni.FrustumMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -435,7 +435,7 @@ public class GameRendererMixin {
             case 2884 -> RenderDevice.get().setCullFace(true, RenderTypes.CullMode.BACK); // GL_CULL_FACE
             case 3553 -> OmniShaderManager.get().setUseTexture(true); // GL_TEXTURE_2D
             case 3008 -> OmniShaderManager.get().setAlphaTest(0.1f); // GL_ALPHA_TEST
-            case 2912 -> {} // GL_FOG - handled by shader
+            case 2912 -> OmniShaderManager.get().setFogEnabled(true); // GL_FOG
             case 2896, 16384, 16385, 2903 -> {} // GL_LIGHTING, GL_LIGHT0/1, GL_COLOR_MATERIAL
             default -> {}
         }
@@ -449,7 +449,7 @@ public class GameRendererMixin {
             case 2884 -> RenderDevice.get().setCullFace(false, RenderTypes.CullMode.NONE);
             case 3553 -> OmniShaderManager.get().setUseTexture(false);
             case 3008 -> OmniShaderManager.get().setAlphaTest(0.0f);
-            case 2912 -> {} // GL_FOG
+            case 2912 -> OmniShaderManager.get().setFogEnabled(false); // GL_FOG
             case 2896, 16384, 16385, 2903 -> {} // Lighting
             default -> {}
         }
