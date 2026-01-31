@@ -30,11 +30,14 @@ public class OmniDisplayList {
     private static IntBuffer indexUploadBuffer;
     private static boolean initialized;
 
+    private static final int VERTEX_STRIDE_INTS = 8;
+
     public static class ListData {
         int[] vertexData;     // raw vertex ints
         int arrayLengthInts;  // length in ints
         int vertexCount;
         int drawMode;         // original draw mode
+        boolean hasColor;     // whether vertices have explicit colors
         float translateX, translateY, translateZ;
     }
 
@@ -59,6 +62,8 @@ public class OmniDisplayList {
         recordedTranslateX = 0;
         recordedTranslateY = 0;
         recordedTranslateZ = 0;
+        // Clear old data so recompilation starts fresh
+        lists.remove(listId);
     }
 
     public static void endRecording() {
@@ -83,12 +88,30 @@ public class OmniDisplayList {
     private static int storeLogCount = 0;
 
     public static void storeData(int listId, int[] vertexArray, int arrayLengthInts, int vertexCount, int drawMode) {
-        ListData data = new ListData();
-        data.vertexData = Arrays.copyOf(vertexArray, arrayLengthInts);
-        data.arrayLengthInts = arrayLengthInts;
-        data.vertexCount = vertexCount;
-        data.drawMode = drawMode;
-        lists.put(listId, data);
+        storeData(listId, vertexArray, arrayLengthInts, vertexCount, drawMode, true);
+    }
+
+    public static void storeData(int listId, int[] vertexArray, int arrayLengthInts, int vertexCount, int drawMode, boolean hasColor) {
+        ListData existing = recording ? lists.get(listId) : null;
+
+        if (existing != null && existing.drawMode == drawMode) {
+            // Append to existing data for the same list ID during recording
+            int newTotalInts = existing.arrayLengthInts + arrayLengthInts;
+            int[] merged = Arrays.copyOf(existing.vertexData, newTotalInts);
+            System.arraycopy(vertexArray, 0, merged, existing.arrayLengthInts, arrayLengthInts);
+            existing.vertexData = merged;
+            existing.arrayLengthInts = newTotalInts;
+            existing.vertexCount += vertexCount;
+            existing.hasColor = existing.hasColor || hasColor;
+        } else {
+            ListData data = new ListData();
+            data.vertexData = Arrays.copyOf(vertexArray, arrayLengthInts);
+            data.arrayLengthInts = arrayLengthInts;
+            data.vertexCount = vertexCount;
+            data.drawMode = drawMode;
+            data.hasColor = hasColor;
+            lists.put(listId, data);
+        }
 
         storeLogCount++;
         if (storeLogCount <= 10 || (storeLogCount % 200 == 0)) {
@@ -119,8 +142,10 @@ public class OmniDisplayList {
         OmniMatrixStack.modelview().translate(data.translateX, data.translateY, data.translateZ);
         OmniShaderManager.get().updateMatrices();
 
-        // Terrain uses vertex colors for baked lighting
-        OmniShaderManager.get().setUseVertexColor(true);
+        // Only override vertex color state if the stored data has explicit colors
+        if (data.hasColor) {
+            OmniShaderManager.get().setUseVertexColor(true);
+        }
 
         // Upload vertex data to shared VBO
         int sizeBytes = data.arrayLengthInts * 4;

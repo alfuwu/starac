@@ -101,7 +101,7 @@ public class OmniTesselator {
                     case POINTS -> 0;
                     default -> 7;
                 };
-                OmniDisplayList.storeData(OmniDisplayList.getCurrentListId(), array, p, vertices, drawModeInt);
+                OmniDisplayList.storeData(OmniDisplayList.getCurrentListId(), array, p, vertices, drawModeInt, hasColor);
             } else {
                 draw();
             }

@@ -235,9 +235,11 @@ public class OmniGL11Mixin {
     /** @author omni @reason emulated via OmniDisplayList */
     @Overwrite
     public static void glCallLists(IntBuffer lists) {
+        int pos = lists.position();
         while (lists.hasRemaining()) {
             OmniDisplayList.replay(lists.get());
         }
+        lists.position(pos);
     }
 
     /** @author omni @reason emulated via OmniDisplayList */
@@ -276,4 +278,14 @@ public class OmniGL11Mixin {
     @Overwrite
     public static void glTexCoord2f(float s, float t) {}
 
+    // ========== Texture parameter fixup (GL_CLAMP removed in core) ==========
+
+    /** @author omni @reason GL_CLAMP (10496) removed in core profile; map to GL_CLAMP_TO_EDGE */
+    @Overwrite
+    public static void glTexParameteri(int target, int pname, int param) {
+        if (param == 10496) { // GL_CLAMP -> GL_CLAMP_TO_EDGE
+            param = 33071;
+        }
+        GL11C.glTexParameteri(target, pname, param);
+    }
 }
